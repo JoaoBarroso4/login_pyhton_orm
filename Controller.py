@@ -1,8 +1,8 @@
 from Model import Pessoa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import hashlib
 import re
+import hashlib
 import uuid
 
 
@@ -14,32 +14,38 @@ def retorna_session():
 
 
 class ControllerCadastro:
-    @classmethod
-    def verifica_dados(cls, nome, email, senha):
+    SUCCESS = 1
+    ERROR_INVALID_NAME = 2
+    ERROR_INVALID_EMAIL = 3
+    ERROR_INVALID_PASSWORD = 4
+    ERROR_USER_EXISTS = 5
+
+
+    @staticmethod
+    def verifica_dados(nome, email, senha):
         if len(nome) < 3 or len(nome) > 50:
             print('Nome inválido', len(nome))
-            return 2
+            return ControllerCadastro.ERROR_INVALID_NAME
 
         email_regex = re.compile(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
         if len(email) > 200 and not email_regex.match(email):
-            # verificação de validade de email com expressões regulares
-            return 3
+            return ControllerCadastro.ERROR_INVALID_EMAIL
 
         if 6 < len(senha) < 100:
-            return 4
-        return 1
+            return ControllerCadastro.ERROR_INVALID_PASSWORD
+        return ControllerCadastro.SUCCESS
 
-    @classmethod
-    def cadastrar(cls, nome, email, senha):
+    @staticmethod
+    def cadastrar(nome, email, senha):
         session = retorna_session()
         usuario = session.query(Pessoa).filter(Pessoa.email == email).all()
 
         if len(usuario) > 0:
-            return 5
+            return ControllerCadastro.ERROR_USER_EXISTS
 
-        dados_verificados = cls.verifica_dados(nome, email, senha)
+        dados_verificados = ControllerCadastro.verifica_dados(nome, email, senha)
 
-        if dados_verificados != 1:
+        if dados_verificados != ControllerCadastro.SUCCESS:
             return dados_verificados
 
         try:
@@ -48,14 +54,15 @@ class ControllerCadastro:
             session.add(p)
             session.commit()
             session.close()
-            return 1
-        except:
-            return 3
+            return ControllerCadastro.SUCCESS
+        except Exception as e:
+            print(f"Erro interno: {str(e)}")
+            return
 
 
-class ControllerLogin():
-    @classmethod
-    def login(cls, email, senha):
+class ControllerLogin:
+    @staticmethod
+    def login(email, senha):
         session = retorna_session()
         senha = hashlib.sha256(senha.encode()).hexdigest()
         usuario = session.query(Pessoa).filter(Pessoa.email == email).filter(Pessoa.senha == senha).all()
@@ -64,6 +71,3 @@ class ControllerLogin():
             return {'logado': True, 'id': usuario[0].id}
         else:
             return False
-
-
-print(ControllerLogin.login('teste@gmail.com', '123456'))
